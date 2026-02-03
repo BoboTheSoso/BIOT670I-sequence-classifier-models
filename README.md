@@ -5,3 +5,4 @@ CNN-MGP: Convolutional Neural Networks for Metagenomics Gene Prediction [NCBI Ar
 Pytorch Tutorial for CNNs [Youtube Video] (https://www.youtube.com/watch?v=pDdP0TFzsoQ)
 
 Domain knowledge Computational Biology textbook resource: https://ocw.mit.edu/ans7870/6/6.047/f15/MIT6_047F15_Compiled.pdf
+Other domain knowledge resource: https://research-ebsco-com.ezproxy.umgc.edu/c/fbrdda/ebook-viewer/pdf/bxqiwspgxj/page/pp_ii
