@@ -15,7 +15,7 @@ OR https://learning.oreilly.com/library/view/bioinformatics-and-functional/97804
 ## Project Overview
 This project trains machine learning models (CNN, RNN, SVM) to classify human DNA sequences as coding or non-coding. The models learn patterns from 250 bp windows extracted from human chromosome 22.
 
-##Potential Annotated Sequence GRCh38 
+## Potential Annotated Sequence GRCh38 
 
   Folder Structure
 - `Data/chr22/`: Contains extracted chromosome 22 files
