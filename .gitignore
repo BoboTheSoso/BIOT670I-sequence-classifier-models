@@ -1,0 +1,19 @@
+# Large genomics files
+*.fna
+*.fasta
+*.fa
+*.gff
+*.gff3
+*.gtf
+
+# Compressed data
+*.gz
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+
+# Mac system files
+.DS_Store
+
