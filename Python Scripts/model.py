@@ -2,13 +2,12 @@ import itertools
 import sys
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn import svm
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import cross_val_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import cross_val_score, train_test_split
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -62,36 +61,49 @@ y = np.array(labels)
 # 2. Traint/Test Split
 ######
 
-X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42, stratify = y)
 
 
 ######
 # 3. Pipeline scaling PCA and SVM
 ######
 
-pipeline = Pipeline([
-    ('scaler', StandardScaler()),
-    ('pca', PCA(n_components=0.95)), #retains 95% of variance
-    ('svm', svm.SVC(kernel='rbf', C=1, gamma='scale')) #SVM with RBF kernel
-])
+#Parameters for SVM
+kernels = ['linear', 'rbf', 'poly']
+C_values = [0.1, 1, 10]
 
-######
-# 4. Training
-######
+results = []
 
-pipeline.fit(X_train, y_train)
 
-######
-# 5. Evaluation
-######
+for kernel in kernels:
+    for C in C_values:
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('pca', PCA(n_components=0.95)), #retains 95% of variance
+            ('svm', svm.SVC(kernel=kernel, C=C, gamma='scale')) #SVM with RBF kernel
+        ])
 
-y_pred = pipeline.predict(X_test)
-print('Confusion Matrix:\n', confusion_matrix(y_test, y_pred))
-print('\nClassification Report:\n', classification_report(y_test, y_pred))
+        #cross validation accuracy
+        cv_scores = cross_val_score(pipeline, x, y, cv=5)
+        
+        ######
+        # 4. Model Training and Testing
+        ######
 
-######
-# 6. Cross validation
-######
+        pipeline.fit(X_train, y_train)
+        #test predictions
+        y_pred = pipeline.predict(X_test)
 
-scores = cross_val_score(pipeline, x, y, cv=5)
-print('\nCross-validation accuracy: ', scores.mean())
+        #Results
+        results.append({
+            'kernel': kernel,
+            'C': C,
+            'cv_accuracy': cv_scores.mean(),
+            'test_accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred, average='weighted'),
+            'recall': recall_score(y_test, y_pred, average='weighted'),
+            'f1_score': f1_score(y_test, y_pred, average='weighted')
+        })
+#Print results
+for res in results:
+    print(f"Kernel: {res['kernel']}, C: {res['C']}, CV Accuracy: {res['cv_accuracy']:.4f}, Test Accuracy: {res['test_accuracy']:.4f}, Precision: {res['precision']:.4f}, Recall: {res['recall']:.4f}, F1 Score: {res['f1_score']:.4f}")
