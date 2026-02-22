@@ -45,7 +45,7 @@ def extract_features(df):
     return kmer_feat + gc_feat
 
 ######
-# Data Preparation
+# 1. Data Preparation
 ######
 
 #Get sequence from system file path GUI
@@ -53,40 +53,45 @@ file_path = 'x' #open a window to select a file
 sequence = open(file_path).read().strip()
 labels = sequence_coding_regions['type'].values
 #Pull the data from the LoadingData.py file and extract features
+#also add GC content and ORF length as features
 
 x = np.array([extract_features(seq) for seq in sequence_coding_regions['attributes']])
 y = np.array(labels)
 
 ######
-# Traint/Test Split
+# 2. Traint/Test Split
+######
+
 X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
 
 ######
-# Pipeline scaling PCA and SVM
+# 3. Pipeline scaling PCA and SVM
 ######
 
 pipeline = Pipeline([
     ('scaler', StandardScaler()),
     ('pca', PCA(n_components=0.95)), #retains 95% of variance
-    ('svm', svm.SVC(kernel='linear'))
+    ('svm', svm.SVC(kernel='rbf', C=1, gamma='scale')) #SVM with RBF kernel
 ])
 
 ######
-# Training
+# 4. Training
 ######
 
 pipeline.fit(X_train, y_train)
 
 ######
-# Evaluation
+# 5. Evaluation
 ######
+
 y_pred = pipeline.predict(X_test)
 print('Confusion Matrix:\n', confusion_matrix(y_test, y_pred))
 print('\nClassification Report:\n', classification_report(y_test, y_pred))
 
 ######
-# Cross validation
+# 6. Cross validation
 ######
+
 scores = cross_val_score(pipeline, x, y, cv=5)
 print('\nCross-validation accuracy: ', scores.mean())
