@@ -87,7 +87,7 @@ def train_model():
 
     return svm_model, scaler, pca, accuracy 
 
-# Create a simple GUI using Tkinter
+# Create a simple GUI using Steamlit
 st.title("🧬 DNA Coding vs Non-Coding Classifier")
 
 st.write("This model uses SVM + PCA to classify DNA sequences.")
@@ -99,10 +99,16 @@ st.success(f"Model Accuracy: {accuracy:.4f}")
 sequence_input = st.text_area("Enter DNA Sequence (A, C, G, T only):")
 
 if st.button("Classify"):
-    if sequence_input.strip() == "":
+    sequence_input = sequence_input.strip().upper()
+
+    if sequence_input == "":
         st.warning("Please enter a DNA sequence.")
+    
+    elif not all(nuc in "ACGT" for nuc in sequence_input):
+        st.error("Invalid sequence! Only A, C, G, T are allowed.")
+    
     else:
-        encoded = np.array(one_hot_encode(sequence_input.upper())).reshape(1, -1)
+        encoded = np.array(one_hot_encode(sequence_input)).reshape(1, -1)
         encoded_scaled = scaler.transform(encoded)
         encoded_pca = pca.transform(encoded_scaled)
 
@@ -110,8 +116,8 @@ if st.button("Classify"):
         probability = svm_model.predict_proba(encoded_pca)[0][result]
 
         if result == 1:
-            st.success(f"Prediction: Coding")
+            st.success("Prediction: Coding")
         else:
-            st.error(f"Prediction: Non-Coding")
+            st.error("Prediction: Non-Coding")
 
         st.write(f"Confidence: {probability:.4f}")
