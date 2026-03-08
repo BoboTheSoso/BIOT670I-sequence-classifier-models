@@ -1,109 +1,138 @@
-import itertools
-import sys
+#Import core libraries
 import numpy as np
-import pandas as pd
+import joblib #for saving the model after training?
+
+#Processing and PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn import svm
+
+#model
+from sklearn.svm import SVC #supports the 3 kernel methods
+
+#pipeline
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from sklearn.model_selection import cross_val_score, train_test_split
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import seaborn as sns
-from LoadingData import sequence_coding_regions
+#model selection for cross val
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, ParameterGrid, cross_val_score
 
-######
-# Feature Extraction
-######
-def generate_kmers(k):
-    return [''.join(p) for p in itertools.product('ACGT', repeat=k)]
+#metrics
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
-def kmer_frequency(sequence, k=3):
-    kmers = generate_kmers(k)
-    counts = dict.fromkeys(kmers, 0)
+#---------------------------------------------
+#Load Data from the previous step + param grid
+#---------------------------------------------
 
-    for i in range(len(sequence) - k + 1):
-        kmer = sequence[i:i+k]
-        if kmer in counts:
-            counts[kmer] += 1
+DATA_DIR = "Data/processed/kmer=3"
 
-    total_kmers = sum(counts.values())
-    if total_kmers > 0:
-        for key in counts:
-            counts[key] /= total_kmers
-    return list(counts.values())
+#Load features into matrix
+X_train = np.load(f"{DATA_DIR}/X_train.npy")
+y_train = np.load(f"{DATA_DIR}/y_train.npy")
 
-def gc_content(sequence):
-    return (sequence.count('G') + sequence.count('C')) / len(sequence) if len(sequence) > 0 else 0
+X_val = np.load(f"{DATA_DIR}/X_val.npy")
+y_val = np.load(f"{DATA_DIR}/y_val.npy")
 
-def extract_features(df):
-    kmer_feat = kmer_frequency(sequence, k=3)
-    gc_feat = [gc_content(sequence)]
-    return kmer_feat + gc_feat
+X_test = np.load(f"{DATA_DIR}/X_test.npy")
+y_test = np.load(f"{DATA_DIR}/y_test.npy")
 
-######
-# 1. Data Preparation
-######
+#Double checking shapes
+print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+print(f"X_val shape: {X_val.shape}, y_val shape: {y_val.shape}")
+print(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
 
-#Get sequence from system file path GUI
-file_path = 'x' #open a window to select a file
-sequence = open(file_path).read().strip()
-labels = sequence_coding_regions['type'].values
-#Pull the data from the LoadingData.py file and extract features
-#also add GC content and ORF length as features
+#Make a parameter grid for tuning the SVM hyperparameters
+param_grid = [
+    {'svc_kernel': ['linear'], 'svc_C': [0.1, 1, 10]},
+    {'svc_kernel': ['rbf'], 'svc_C': [0.1, 1, 10], 'svc_gamma': ['scale', 0.01, 0.1]},
+    {'svc_kernel': ['poly'], 'svc_C': [0.1, 1, 10], 'svc_gamma': ['scale', 0.01, 0.1], 'svc_degree': [2, 3]}
+]
 
-x = np.array([extract_features(seq) for seq in sequence_coding_regions['attributes']])
-y = np.array(labels)
+#-----------------------
+#Set up cross-validation
+#-----------------------
 
-######
-# 2. Traint/Test Split
-######
+#Outer CV for model evaluation, inner CV for hyperparameter tuning
+outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
-X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42, stratify = y)
-
-
-######
-# 3. Pipeline scaling PCA and SVM
-######
-
-#Parameters for SVM
-kernels = ['linear', 'rbf', 'poly']
-C_values = [0.1, 1, 10]
-
-results = []
+#function for nested cross-validation with GridSearchCV on inner loop --> switching to gridSearchCV
+def inner_cv_grid_search(X, y, pipeline, param_combination):
+    scores = []
+    for train_idx, val_idx in inner_cv.split(X, y):
+        X_train_inner, y_train_inner = X[train_idx], y[train_idx]
+        X_val_inner, y_val_inner = X[val_idx], y[val_idx]
+        
+        pipeline.set_params(**param_combination)
+        pipeline.fit(X_train_inner, y_train_inner)
+        y_pred_inner = pipeline.predict(X_val_inner)
+        scores.append(accuracy_score(y_val_inner, y_pred_inner))
+    return np.mean(scores)
 
 
-for kernel in kernels:
-    for C in C_values:
+
+#----------------------------------------------------------
+# Define the parameter grid for SVM hyperparameters to test
+#----------------------------------------------------------
+
+#Outer loop for cv
+for outer_train_idx, outer_val_idx in outer_cv.split(X_train, y_train):
+    X_train_outer, y_train_outer = X_train[outer_train_idx], y_train[outer_train_idx]
+    X_val_outer, y_val_outer = X_train[outer_val_idx], y_train[outer_val_idx]
+
+    best_score = 0
+    best_params = None
+
+    #Inner loop for hyperparameter tuning
+    for params in ParameterGrid(param_grid):
         pipeline = Pipeline([
             ('scaler', StandardScaler()),
-            ('pca', PCA(n_components=0.95)), #retains 95% of variance
-            ('svm', svm.SVC(kernel=kernel, C=C, gamma='scale')) #SVM with RBF kernel
+            ('pca', PCA(n_components=50)), #reduce to 50 components for speed
+            ('svc', SVC(probability=True))
         ])
+       #pipeline.set_params(**params)
+        score = inner_cv_grid_search(X_train_outer, y_train_outer, pipeline, params)
+        if score > best_score:
+            best_score = score
+            best_params = params
 
-        #cross validation accuracy
-        cv_scores = cross_val_score(pipeline, x, y, cv=5)
-        
-        ######
-        # 4. Model Training and Testing
-        ######
+    print(f"Best parameters for this fold: {best_params} with inner CV accuracy: {best_score:.4f}")
 
-        pipeline.fit(X_train, y_train)
-        #test predictions
-        y_pred = pipeline.predict(X_test)
+#for loop to test each kernel type and its hyperparameters
+for params in ParameterGrid(param_grid):
+    print(f"\nTraining SVM with parameters: {params}")
+    
+    #Create the pipeline
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('pca', PCA(n_components=50)), #reduce to 50 components for speed
+        ('svc', SVC(probability=True))
+    ])
+    #hyperparameters
+    pipeline.set_params(**params)
 
-        #Results
-        results.append({
-            'kernel': kernel,
-            'C': C,
-            'cv_accuracy': cv_scores.mean(),
-            'test_accuracy': accuracy_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred, average='weighted'),
-            'recall': recall_score(y_test, y_pred, average='weighted'),
-            'f1_score': f1_score(y_test, y_pred, average='weighted')
-        })
-#Print results
-for res in results:
-    print(f"Kernel: {res['kernel']}, C: {res['C']}, CV Accuracy: {res['cv_accuracy']:.4f}, Test Accuracy: {res['test_accuracy']:.4f}, Precision: {res['precision']:.4f}, Recall: {res['recall']:.4f}, F1 Score: {res['f1_score']:.4f}")
+    
+    #----------------------------------
+    #Nested Stratified Cross-validation
+    #----------------------------------
+
+    outer_scores = cross_val_score(pipeline, X_train, y_train, cv=outer_cv, scoring='accuracy')
+    print(f"Outer CV accuracy: {outer_scores.mean():.4f} ± {outer_scores.std():.4f}")
+
+    #---------------
+    #Train the model
+    #---------------
+
+    pipeline.fit(X_train, y_train)
+    
+    #----------
+    #Evaluation
+    #----------
+
+    #Evaluate on validation set
+    y_val_pred = pipeline.predict(X_val)
+    print("Validation set:")
+    print(classification_report(y_val, y_val_pred))
+    
+    #Evaluate on test set
+    y_test_pred = pipeline.predict(X_test)
+    print("Test set:")
+    print(classification_report(y_test, y_test_pred))
