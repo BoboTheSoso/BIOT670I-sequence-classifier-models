@@ -1,160 +1,177 @@
-# Import the necessary models and library
-import numpy as np 
-import streamlit as st
+"""
+DNA Coding vs Non-Coding Classification
+---------------------------------------
+
+This script:
+
+1. Loads preprocessed train/val/test datasets
+2. Generates 3-mer (k=3) frequency features
+3. Scales features
+4. Applies PCA (dimensionality reduction)
+5. Trains three SVM models:
+      - Linear kernel
+      - RBF kernel
+      - Polynomial kernel
+6. Evaluates models using:
+      - Accuracy
+      - Precision
+      - Recall
+      - F1-score
+      - Confusion Matrix
+7. Saves trained models using joblib to avoid retraining in the future.
+"""
+
+import os
+import numpy as np
+import pandas as pd
+import joblib
+from itertools import product
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from itertools import product
 
-# Function that Read Fasta file
-def read_fasta_file(file_path):
-    sequences = []              
-    current_sequence = ""       
-    with open(file_path, 'r') as file:
-        for line in file:
-            if line.startswith('>'):
-                if current_sequence != "":
-                    sequences.append(current_sequence.upper())
-                current_sequence = ""
-            else:
-                current_sequence += line.strip()
 
-        if current_sequence != "":
-            sequences.append(current_sequence.upper())
+# =====================================================
+# STEP 1: K-MER FEATURE EXTRACTION
+# =====================================================
 
-    return sequences
-
-# Check for Open Reading Frames (ORFs)
-def has_orf(sequence, min_length=90):
-    stop_codons = {"TAA", "TAG", "TGA"}
+def generate_all_kmers(k=3): #Generate all possible k-mers using A,C,G,T. For k=3 → 4^3 = 64 features.
     
-    # Check all 3 reading frames
-    for frame in range(3):
-        for i in range(frame, len(sequence) - 2, 3):
-            if sequence[i:i+3] == "ATG":
-                for j in range(i+3, len(sequence) - 2, 3):
-                    if sequence[j:j+3] in stop_codons:
-                        orf_length = j - i
-                        if orf_length >= min_length:
-                            return True
-                        break
-    return False
-
-# Generate k-mer features
-def k_mers(sequence, k=3):
     return [''.join(p) for p in product('ACGT', repeat=k)]
 
-ALL_K_MERS = k_mers('ACGT', k=3)
 
-def k_mer_features(sequence, k=3):
-    counts = dict.fromkeys(ALL_K_MERS, 0)
+ALL_KMERS = generate_all_kmers(3)
+
+
+def k_mer_features(sequence, k=3): #Convert a DNA sequence into normalized k-mer frequency features.
+    
+    counts = dict.fromkeys(ALL_KMERS, 0)
+
     for i in range(len(sequence) - k + 1):
-        k_mer = sequence[i:i+k]
-        if k_mer in counts:
-            counts[k_mer] += 1
+        kmer = sequence[i:i+k]
+        if kmer in counts:
+            counts[kmer] += 1
 
     total = sum(counts.values())
+
+    # Normalize to frequency
     if total > 0:
-        for k_mer in counts:
-            counts[k_mer] /= total
+        for kmer in counts:
+            counts[kmer] /= total
 
     return list(counts.values())
 
-# Global variable to store the trained model
-svm_model = None
-scaler = None
-pca = None
 
-# Load and train the model
-def train_model():
-    global svm_model, scaler, pca
+# =====================================================
+# STEP 2: LOAD DATA
+# =====================================================
+
+TRAIN_PATH = "Data/processed/train.csv"
+VAL_PATH   = "Data/processed/val.csv"
+TEST_PATH  = "Data/processed/test.csv"
+
+train_df = pd.read_csv(TRAIN_PATH)
+val_df   = pd.read_csv(VAL_PATH)
+test_df  = pd.read_csv(TEST_PATH)
+
+# Extract features and labels
+X_train = np.array([k_mer_features(seq) for seq in train_df["sequence"]])
+y_train = train_df["label"].values
+
+X_val = np.array([k_mer_features(seq) for seq in val_df["sequence"]])
+y_val = val_df["label"].values
+
+X_test = np.array([k_mer_features(seq) for seq in test_df["sequence"]])
+y_test = test_df["label"].values
+
+
+# =====================================================
+# STEP 3: SCALE FEATURES
+# =====================================================
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled   = scaler.transform(X_val)
+X_test_scaled  = scaler.transform(X_test)
+
+
+# =====================================================
+# STEP 4: PCA DIMENSIONALITY REDUCTION
+# =====================================================
+
+pca = PCA(n_components=32)
+X_train_pca = pca.fit_transform(X_train_scaled)
+X_val_pca   = pca.transform(X_val_scaled)
+X_test_pca  = pca.transform(X_test_scaled)
+
+print("Total Variance Retained by PCA:", np.sum(pca.explained_variance_ratio_))
+
+
+# =====================================================
+# STEP 5: TRAIN SVM MODELS
+# =====================================================
+
+# Linear Kernel
+svm_linear = SVC(kernel='linear', C=1, probability=True)
+svm_linear.fit(X_train_pca, y_train)
+
+# RBF Kernel
+svm_rbf = SVC(kernel='rbf', C=1, gamma='scale', probability=True)
+svm_rbf.fit(X_train_pca, y_train)
+
+# Polynomial Kernel
+svm_poly = SVC(kernel='poly', degree=3, C=1, probability=True)
+svm_poly.fit(X_train_pca, y_train)
+
+
+# =====================================================
+# STEP 6: EVALUATION FUNCTION
+# =====================================================
+
+def evaluate_model(model, X, y, name="Model"): #Evaluate model performance and print metrics.
     
-    # Load the Dataset
-    coding_seq = read_fasta_file("coding_sequences.fasta")
-    non_coding_seq = read_fasta_file("noncoding_sequences.fasta") 
+    y_pred = model.predict(X)
 
-    sequences = coding_seq + non_coding_seq
-    labels = [1] * len(coding_seq) + [0] * len(non_coding_seq)
+    acc  = accuracy_score(y, y_pred)
+    prec = precision_score(y, y_pred)
+    rec  = recall_score(y, y_pred)
+    f1   = f1_score(y, y_pred)
+    cm   = confusion_matrix(y, y_pred)
 
-    features = np.array([k_mer_features(seq) for seq in sequences]) 
+    print("\n==============================")
+    print(f"{name} Performance")
+    print("==============================")
+    print("Accuracy :", round(acc, 4))
+    print("Precision:", round(prec, 4))
+    print("Recall   :", round(rec, 4))
+    print("F1 Score :", round(f1, 4))
+    print("Confusion Matrix:\n", cm)
 
-    # Split the Dataset into Training and Testing sets
-    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=27, stratify=labels)
-
-    # Scale the Dataset
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test) 
-
-    # Dimensionality Reduction using PCA
-    pca = PCA(n_components=32) # reduce to 32 dimensions
-    X_train_pca = pca.fit_transform(X_train_scaled)
-    X_test_pca = pca.transform(X_test_scaled)
-    
-    #Training Linear SVM model
-    svm_model_linear = SVC(kernel='linear', C=1, gamma='scale', probability=True)
-    svm_model_linear.fit(X_train_pca, y_train)
-    y_pred_linear = svm_model_linear.predict(X_test_pca)
-    accuracy_linear = accuracy_score(y_test, y_pred_linear)
-    print("Linear SVM Model Accuracy:", accuracy_linear)
-
-    # Train the rbf SVM model
-    svm_model_rbf = SVC(kernel='rbf', C=1, gamma='scale', probability=True)
-    svm_model_rbf.fit(X_train_pca, y_train)
-
-    y_pred = svm_model_rbf.predict(X_test_pca)
-    accuracy_rbf = accuracy_score(y_test, y_pred)
-    print("RBF SVM Model Accuracy:", accuracy_rbf)
-
-    Conf_mat = confusion_matrix(y_test, y_pred)
-
-    return svm_model_linear,svm_model_rbf, scaler, pca, accuracy_rbf, accuracy_linear, Conf_mat
-
-# Create a simple GUI using Steamlit
-st.title("🧬 DNA Coding vs Non-Coding Classifier")
-
-svm_model_linear, svm_model_rbf, scaler, pca, accuracy_rbf, accuracy_linear, Conf_mat = train_model()
-
-st.subheader("Model Performance")
-st.write(f"Linear SVM Accuracy: {accuracy_linear:.4f}")
-st.write(f"RBF SVM Accuracy: {accuracy_rbf:.4f}")
-st.write("This model uses SVM + PCA to classify DNA sequences.")
-
-st.subheader("Confusion Matrix")
-st.write(Conf_mat)
-
-st.subheader("PCA Explained Variance Ratio")
-st.write(f"Total Variance Retained: {np.sum(pca.explained_variance_ratio_):.4f}")
+    return acc, prec, rec, f1
 
 
-sequence_input = st.text_area("Please, Enter DNA Sequence (A, C, G, T only):")
+# =====================================================
+# STEP 7: VALIDATION PERFORMANCE
+# =====================================================
 
-if st.button("Classify"):
-    sequence_input = sequence_input.strip().upper()
-
-    if sequence_input == "":
-        st.warning("Please enter a DNA sequence.")
-    
-    elif not all(nuc in "ACGT" for nuc in sequence_input):
-        st.error("Invalid characters entered! Only A, C, G, T are allowed.")
-    
-    elif not has_orf(sequence_input):
-        st.warning("No Open Reading Frame (ORF) detected! The sequence is likely non-coding.")
+evaluate_model(svm_linear, X_val_pca, y_val, "Linear SVM (Validation)")
+evaluate_model(svm_rbf, X_val_pca, y_val, "RBF SVM (Validation)")
+evaluate_model(svm_poly, X_val_pca, y_val, "Polynomial SVM (Validation)")
 
 
-    else:
-        features = np.array(k_mer_features(sequence_input)).reshape(1, -1)
-        features_scaled = scaler.transform(features)
-        features_pca = pca.transform(features_scaled)
 
-        result = svm_model_rbf.predict(features_pca)[0]
-        probability = svm_model_rbf.predict_proba(features_pca)[0][result]
 
-        if result == 1:
-            st.success("Prediction: Coding")
-        else:
-            st.error("Prediction: Non-Coding")
+# =====================================================
+# STEP 8: SAVE MODELS USING JOBLIB
+# =====================================================
 
-        st.write(f"Confidence: {probability:.4f}")
+os.makedirs("saved_models", exist_ok=True)
+
+joblib.dump(svm_linear, "saved_models/svm_linear.pkl")
+joblib.dump(svm_rbf, "saved_models/svm_rbf.pkl")
+joblib.dump(svm_poly, "saved_models/svm_poly.pkl")
+joblib.dump(scaler, "saved_models/scaler.pkl")
+joblib.dump(pca, "saved_models/pca.pkl")
+
+print("\nModels saved successfully.")
