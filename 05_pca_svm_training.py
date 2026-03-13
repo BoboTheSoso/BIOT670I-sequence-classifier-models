@@ -1,6 +1,7 @@
 #Import core libraries
 import numpy as np
 import joblib #for saving the model after training?
+import os
 
 #Processing and PCA
 from sklearn.preprocessing import StandardScaler
@@ -107,15 +108,16 @@ final_model = final_grid.best_estimator_
 # Evaluation method
 #-----------------------------------------------------------
 
-def evaluate_step(model, set_name, set_pred):
-    print('Accuracy: ', round(accuracy_score(set_name, set_pred), 4))
-    print('Precision: ', round(precision_score(set_name, set_pred), 4))
-    print('Recall: ', round(recall_score(set_name, set_pred), 4))
-    print('F1 Score: ', round(f1_score(set_name, set_pred), 4))
-    print('ROC AUC: ', round(roc_auc_score(set_name, set_pred), 4))
+def evaluate_step(y_true, y_pred, y_proba=None):
+    print('Accuracy: ', round(accuracy_score(y_true, y_pred), 4))
+    print('Precision: ', round(precision_score(y_true, y_pred, zero_division = 0), 4))
+    print('Recall: ', round(recall_score(y_true, y_pred, zero_division = 0), 4))
+    print('F1 Score: ', round(f1_score(y_true, y_pred, zero_division = 0), 4))
+    if y_proba is not None:
+        print('ROC AUC: ', round(roc_auc_score(y_true, y_proba), 4))
 
-    print('\nConfusion Matrix:\n', confusion_matrix(set_name, set_pred))
-    print('\nClassification Report:\n', classification_report(set_name, set_pred))
+    print('\nConfusion Matrix:\n', confusion_matrix(y_true, y_pred))
+    print('\nClassification Report:\n', classification_report(y_true, y_pred))
 
 
 
@@ -128,7 +130,7 @@ y_val_proba = final_model.predict_proba(X_val)[:, 1] #probabilities for ROC AUC
 
 #Evaluation metrics
 print("Validation set evaluation:")
-evaluate_step(y_val, y_val_pred)
+evaluate_step(y_val, y_val_pred, y_val_proba)
 
 #-----------------------------------------------------------
 # Test evaluation
@@ -138,7 +140,7 @@ y_test_pred = final_model.predict(X_test)
 y_test_proba = final_model.predict_proba(X_test)[:, 1] #probabilities for ROC AUC
 
 print("Test set evaluation:")
-evaluate_step(y_test, y_test_pred)
+evaluate_step(y_test, y_test_pred, y_test_proba)
 
 
 #-----------------------------------------------------------
@@ -147,4 +149,5 @@ evaluate_step(y_test, y_test_pred)
 
 #Target directory will depend on GitHub structure and where you want to save the model
 MODEL_DIR = "Models"
+os.makedirs(MODEL_DIR, exist_ok=True)
 joblib.dump(final_model, f"{MODEL_DIR}/pca_svm_model.joblib")
