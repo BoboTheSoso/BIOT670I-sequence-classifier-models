@@ -14,7 +14,7 @@ from sklearn.svm import SVC #supports the 3 kernel methods
 from sklearn.pipeline import Pipeline
 
 #model selection for cross val
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, ParameterGrid, cross_val_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 #metrics
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
@@ -77,7 +77,7 @@ for outer_train_idx, outer_val_idx in outer_cv.split(X_train, y_train):
     X_train_outer, y_train_outer = X_train[outer_train_idx], y_train[outer_train_idx]
     X_val_outer, y_val_outer = X_train[outer_val_idx], y_train[outer_val_idx]
 
-    grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc') #check roc auc types options for binary vs multiclass
+    grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1) #check roc auc types options for binary vs multiclass
     grid_search.fit(X_train_outer, y_train_outer)
 
     best_params = grid_search.best_params_
@@ -100,7 +100,7 @@ print(f"\nOverall Outer CV Accuracy: {np.mean(outer_scores):.4f} ± {np.std(oute
 # Train model
 #-----------------------------------------------------------
 
-final_grid = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc')
+final_grid = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
 final_grid.fit(X_train, y_train)
 final_model = final_grid.best_estimator_
 
