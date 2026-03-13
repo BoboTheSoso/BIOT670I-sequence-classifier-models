@@ -55,9 +55,9 @@ pipeline = Pipeline([
 #-----------------------------------------------------------
 
 param_grid = [
-    {'svc_kernel': ['linear'], 'svc_C': [0.1, 1, 10]},
-    {'svc_kernel': ['rbf'], 'svc_C': [0.1, 1, 10], 'svc_gamma': ['scale', 0.01, 0.1]},
-    {'svc_kernel': ['poly'], 'svc_C': [0.1, 1, 10], 'svc_gamma': ['scale', 0.01, 0.1], 'svc_degree': [2, 3]}
+    {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]},
+    {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]},
+    {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]}
 ]
 
 
@@ -76,7 +76,7 @@ for outer_train_idx, outer_val_idx in outer_cv.split(X_train, y_train):
     X_train_outer, y_train_outer = X_train[outer_train_idx], y_train[outer_train_idx]
     X_val_outer, y_val_outer = X_train[outer_val_idx], y_train[outer_val_idx]
 
-    grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc')
+    grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc') #check roc auc types options for binary vs multiclass
     grid_search.fit(X_train_outer, y_train_outer)
 
     best_params = grid_search.best_params_
@@ -104,23 +104,41 @@ final_grid.fit(X_train, y_train)
 final_model = final_grid.best_estimator_
 
 #-----------------------------------------------------------
+# Evaluation method
+#-----------------------------------------------------------
+
+def evaluate_step(model, set_name, set_pred):
+    print('Accuracy: ', accuracy_score(set_name, set_pred))
+    print('Precision: ', precision_score(set_name, set_pred))
+    print('Recall: ', recall_score(set_name, set_pred))
+    print('F1 Score: ', f1_score(set_name, set_pred))
+    print('ROC AUC: ', roc_auc_score(set_name, set_pred))
+
+    print('\nConfusion Matrix:\n', confusion_matrix(set_name, set_pred))
+    print('\nClassification Report:\n', classification_report(set_name, set_pred))
+
+
+
+#-----------------------------------------------------------
 # Validation evaluation
 #-----------------------------------------------------------
 
-y_val_pred = best_model.predict(X_val)
+y_val_pred = final_model.predict(X_val)
+y_val_proba = final_model.predict_proba(X_val)[:, 1] #probabilities for ROC AUC
 
+#Evaluation metrics
 print("Validation set evaluation:")
-print(classification_report(y_val, y_val_pred))
-
+evaluate_step(y_val, y_val_pred)
 
 #-----------------------------------------------------------
 # Test evaluation
 #-----------------------------------------------------------
-
-y_test_pred = best_model.predict(X_test)
+ 
+y_test_pred = final_model.predict(X_test)
+y_test_proba = final_model.predict_proba(X_test)[:, 1] #probabilities for ROC AUC
 
 print("Test set evaluation:")
-print(classification_report(y_test, y_test_pred))
+evaluate_step(y_test, y_test_pred)
 
 
 #-----------------------------------------------------------
