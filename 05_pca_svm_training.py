@@ -108,11 +108,11 @@ final_model = final_grid.best_estimator_
 #-----------------------------------------------------------
 
 def evaluate_step(model, set_name, set_pred):
-    print('Accuracy: ', accuracy_score(set_name, set_pred))
-    print('Precision: ', precision_score(set_name, set_pred))
-    print('Recall: ', recall_score(set_name, set_pred))
-    print('F1 Score: ', f1_score(set_name, set_pred))
-    print('ROC AUC: ', roc_auc_score(set_name, set_pred))
+    print('Accuracy: ', round(accuracy_score(set_name, set_pred), 4))
+    print('Precision: ', round(precision_score(set_name, set_pred), 4))
+    print('Recall: ', round(recall_score(set_name, set_pred), 4))
+    print('F1 Score: ', round(f1_score(set_name, set_pred), 4))
+    print('ROC AUC: ', round(roc_auc_score(set_name, set_pred), 4))
 
     print('\nConfusion Matrix:\n', confusion_matrix(set_name, set_pred))
     print('\nClassification Report:\n', classification_report(set_name, set_pred))
@@ -145,3 +145,6 @@ evaluate_step(y_test, y_test_pred)
 # SAVE MODEL WITH JOBLIB
 #-----------------------------------------------------------
 
+#Target directory will depend on GitHub structure and where you want to save the model
+MODEL_DIR = "Models"
+joblib.dump(final_model, f"{MODEL_DIR}/pca_svm_model.joblib")
