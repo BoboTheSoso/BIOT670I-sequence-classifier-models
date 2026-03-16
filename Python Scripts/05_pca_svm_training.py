@@ -136,12 +136,12 @@ final_model = final_grid.best_estimator_
 #-----------------------------------------------------------
 
 def evaluate_step(y_true, y_pred, y_proba=None):
-    print('Accuracy: ', round(accuracy_score(y_true, y_pred), 4))
-    print('Precision: ', round(precision_score(y_true, y_pred, zero_division = 0), 4))
-    print('Recall: ', round(recall_score(y_true, y_pred, zero_division = 0), 4))
-    print('F1 Score: ', round(f1_score(y_true, y_pred, zero_division = 0), 4))
+    print('Accuracy: ', round(float(accuracy_score(y_true, y_pred)), 4))
+    print('Precision: ', round(float(precision_score(y_true, y_pred, zero_division = 0)), 4))
+    print('Recall: ', round(float(recall_score(y_true, y_pred, zero_division = 0)), 4))
+    print('F1 Score: ', round(float(f1_score(y_true, y_pred, zero_division = 0)), 4))
     if y_proba is not None:
-        print('ROC AUC: ', round(roc_auc_score(y_true, y_proba), 4))
+        print('ROC AUC: ', round(float(roc_auc_score(y_true, y_proba)), 4))
 
     print('\nConfusion Matrix:\n', confusion_matrix(y_true, y_pred))
     print('\nClassification Report:\n', classification_report(y_true, y_pred))
