@@ -29,6 +29,7 @@ Output:
 import numpy as np
 import joblib #for saving the model after training?
 import os
+from pathlib import Path
 
 #Processing and PCA
 from sklearn.preprocessing import StandardScaler
@@ -49,8 +50,8 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 #-----------------------------------------------------------
 #Load Data from the previous step + param grid
 #-----------------------------------------------------------
-
-DATA_DIR = "Data/processed/kmer=3"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "Data/processed/kmer=3"
 
 #Load features into matrix
 X_train = np.load(f"{DATA_DIR}/X_train.npy")
@@ -175,6 +176,6 @@ evaluate_step(y_test, y_test_pred, y_test_proba)
 #-----------------------------------------------------------
 
 #Target directory will depend on GitHub structure and where you want to save the model
-MODEL_DIR = "Models"
+MODEL_DIR = PROJECT_ROOT / "Models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 joblib.dump(final_model, f"{MODEL_DIR}/pca_svm_model.joblib")
