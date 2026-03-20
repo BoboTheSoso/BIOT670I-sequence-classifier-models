@@ -23,10 +23,17 @@ from collections import Counter
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "pca_svm_model.joblib"
 
+#-----------------------------------------------------------
+# Load model
+#-----------------------------------------------------------
 try:
     model = joblib.load(MODEL_PATH)
 except Exception as e:
     raise RuntimeError(f"Model not found or failed to load: {e}")
+
+#-----------------------------------------------------------
+# Method for kmer vector-ing
+#-----------------------------------------------------------
 
 K = 3
 ALL_KMERS = [''.join(p) for p in itertools.product("ACGT", repeat=K)]
@@ -61,20 +68,45 @@ def kmer_vector(seq: str) -> np.ndarray:
 
     return vec
 
+#-----------------------------------------------------------
+# File check + read
+#-----------------------------------------------------------
+
 def fileCheck (input_seq):
     if not os.path.exists(input_seq):
         raise FileNotFoundError(f"File not found: {input_seq}")
-    with open(input_seq, "seq") as file:
+    with open(input_seq, "r") as file:
         contents = file.read().strip()
     #check for 'AGCT'
-    if not contents.in('ATCG') #use regex pattern??
+    if not all(base in 'ATCG' for base in contents): #Do we include blank characters? '-', '*', ' ' and all that
         raise ValueError("Not a DNA sequence")
+    return contents
 
 def classify_seq():
     #root = tk.Tk()
-    input_seq = askopenfilename()
-    
+    input_seq = filedialog.askopenfilename()
 
+    try:
+        sequence = fileCheck(input_seq)
+        features = kmer_vector(sequence)
+
+        prediction = model.predict(features)
+        print("Prediction for input sequence: " + prediction)
+
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+#-----------------------------------------------------------
+# GUI time
+#-----------------------------------------------------------
+root = tk.Tk()
+root.title("DNA Classifier for CDS and NCDS")
+
+label = tk.Label(root, text="DNA Sequence Classifier")
+label.pack()
+button = tk.Button(root, text = "Select input sequence", command= classify_seq)
+
+root.mainloop
 
 
 '''
