@@ -51,17 +51,25 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 #Load Data from the previous step + param grid
 #-----------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / "Data/processed/kmer=3"
+DATA_DIR = PROJECT_ROOT / "data" / "processed" / "kmer_k3"
+print(PROJECT_ROOT)
+print(f"kmer dir path: {DATA_DIR}")
 
+X_TRAIN_PATH = DATA_DIR / "X_Train.npy"
+Y_TRAIN_PATH = DATA_DIR / "y_Train.npy"
+X_VAL_PATH = DATA_DIR / "X_Validation.npy"
+Y_VAL_PATH = DATA_DIR / "y_Validation.npy"
+
+print(f"X_Train path: {X_TRAIN_PATH}")
 #Load features into matrix
-X_train = np.load(f"{DATA_DIR}/X_train.npy")
-y_train = np.load(f"{DATA_DIR}/y_train.npy")
+X_train = np.load(X_TRAIN_PATH)
+y_train = np.load(Y_TRAIN_PATH)
 
-X_val = np.load(f"{DATA_DIR}/X_val.npy")
-y_val = np.load(f"{DATA_DIR}/y_val.npy")
+X_val = np.load(X_VAL_PATH)
+y_val = np.load(Y_VAL_PATH)
 
-X_test = np.load(f"{DATA_DIR}/X_test.npy")
-y_test = np.load(f"{DATA_DIR}/y_test.npy")
+X_test = np.load(DATA_DIR / "X_Testing.npy")
+y_test = np.load(DATA_DIR / "y_Testing.npy")
 
 #Double checking shapes
 print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
@@ -77,7 +85,7 @@ pipeline = Pipeline([
     ('pca', PCA(n_components=50)), #reduce to 50 components for speed
     ('svc', SVC(probability=True))
 ])
-
+print("Pipeline created.")
 
 #-----------------------------------------------------------
 # Parameter grid
@@ -88,7 +96,7 @@ param_grid = [
     {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]},
     {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]}
 ]
-
+print("Parameter grid created.")
 
 #-----------------------------------------------------------
 # Nested Cross-validation with GridSearchCV
@@ -179,3 +187,4 @@ evaluate_step(y_test, y_test_pred, y_test_proba)
 MODEL_DIR = PROJECT_ROOT / "Models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 joblib.dump(final_model, f"{MODEL_DIR}/pca_svm_model.joblib")
+print(f"Model saved in path: {MODEL_DIR}")
