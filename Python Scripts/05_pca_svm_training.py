@@ -139,6 +139,7 @@ print(f"\nOverall Outer CV Accuracy: {np.mean(outer_scores):.4f} ± {np.std(oute
 final_grid = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
 final_grid.fit(X_train, y_train)
 final_model = final_grid.best_estimator_
+print("Final model training completed. Moving to evaluation steps.")
 
 #-----------------------------------------------------------
 # Evaluation method
