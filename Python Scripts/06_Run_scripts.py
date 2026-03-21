@@ -21,7 +21,7 @@ from collections import Counter
 
 #Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = PROJECT_ROOT / "pca_svm_model.joblib"
+MODEL_PATH = PROJECT_ROOT / "Models" / "pca_svm_model.joblib"
 
 #-----------------------------------------------------------
 # Load model
@@ -75,24 +75,34 @@ def kmer_vector(seq: str) -> np.ndarray:
 def fileCheck (input_seq):
     if not os.path.exists(input_seq):
         raise FileNotFoundError(f"File not found: {input_seq}")
+    
     with open(input_seq, "r") as file:
-        contents = file.read().strip()
+        lines = file.readlines()
+    
+    #removes any FASTA headers + join sequences
+    seq = "".join(line.strip() for line in lines if not line.startswith(">")).upper()
+    #Filter only valid bases...
+    seq = "".join([b for b in seq if b in "ACTG"])
     #check for 'AGCT'
-    if not all(base in 'ATCG' for base in contents): #Do we include blank characters? '-', '*', ' ' and all that
-        raise ValueError("Not a DNA sequence")
-    return contents
+    if len(seq)==0:
+        raise ValueError("No valid DNA sequence found")
+    return seq
 
+
+#Might have to look into predicting for a window set at 250bp bases on model training?
 def classify_seq():
-    #root = tk.Tk()
+    
     input_seq = filedialog.askopenfilename()
 
     try:
+        filename = os.path.basename(input_seq)
         sequence = fileCheck(input_seq)
-        features = kmer_vector(sequence)
-
-        prediction = model.predict(features)
-        print("Prediction for input sequence: " + prediction)
-
+        features = kmer_vector(sequence).reshape(1,-1)
+        prediction = model.predict(features)[0]
+        prob = model.predict_proba(features)[0].max()  # max probability for predicted class
+        label = "Coding" if prediction == 1 else "Non-coding"
+        result_label.config(text=f"File Name: {filename}\nPrediction: {label}\nConfidence: {prob:.3f}")
+        
     except Exception as e:
         messagebox.showerror("Error", str(e))
 
@@ -101,12 +111,15 @@ def classify_seq():
 #-----------------------------------------------------------
 root = tk.Tk()
 root.title("DNA Classifier for CDS and NCDS")
-
+root.geometry("500x300")
+root.resizable(False,False)
 label = tk.Label(root, text="DNA Sequence Classifier")
-label.pack()
+label.pack(pady=10)
 button = tk.Button(root, text = "Select input sequence", command= classify_seq)
-
-root.mainloop
+button.pack(pady=10)
+result_label = tk.Label(root, text="")
+result_label.pack(pady=20)
+root.mainloop()
 
 
 '''
@@ -114,7 +127,7 @@ Pseudocode:
 
 Get all paths
 GUI pops up to let user select file from their machine
-scripts processes the file: kmer breakage np for model plug-in
+scripts processes the file: kmer breakage np for model plug-in  
 uses pre-saved model from joblib to give a prediction
 test evaluation grid thing + final prediction coding vs non-coding
 '''
