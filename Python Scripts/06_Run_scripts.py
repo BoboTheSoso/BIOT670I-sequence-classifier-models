@@ -3,7 +3,6 @@ This script is only to run the preprocessing script and the pca+svm training scr
 Add a GUI
 '''
 import os
-import subprocess
 import numpy as np
 from pathlib import Path
 import tkinter as tk
@@ -12,12 +11,6 @@ from tkinter.filedialog import askopenfilename
 import joblib
 import itertools
 from collections import Counter
-
-# Run the preprocessing script
-#subprocess.run(["python", "01-04_Data_preprocessing_Scripts.py"])
-
-# Run the PCA + SVM training script
-#subprocess.run(["python", "05_pca_svm_training.py"])
 
 #Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +26,7 @@ except Exception as e:
 
 #-----------------------------------------------------------
 # Method for kmer vector-ing
-#-----------------------------------------------------------
+#-----------------------------------------------------------    
 
 K = 3
 ALL_KMERS = [''.join(p) for p in itertools.product("ACGT", repeat=K)]
@@ -81,10 +74,10 @@ def fileCheck (input_seq):
     
     #removes any FASTA headers + join sequences
     seq = "".join(line.strip() for line in lines if not line.startswith(">")).upper()
-    #Filter only valid bases...
-    seq = "".join([b for b in seq if b in "ACTG"])
+    
+    
     #check for 'AGCT'
-    if len(seq)==0:
+    while not all(base in 'ACGT' for base in seq):
         raise ValueError("No valid DNA sequence found")
     return seq
 
