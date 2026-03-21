@@ -64,8 +64,31 @@ def load_or_train_model():
 #-----------------------------------------------------------    
 
 K = 3
+WINDOW_SIZE = 250
+STEP_SIZE = 100
 ALL_KMERS = [''.join(p) for p in itertools.product("ACGT", repeat=K)]
 KMER_INDEX = {kmer: i for i, kmer in enumerate(ALL_KMERS)}
+
+def windowed_kmer_preds(seq:str, wind=WINDOW_SIZE, step=STEP_SIZE):
+    if len(seq)<wind:
+        raise ValueError(f"Sequence too short. Must be at least {wind}bp, current length: {len(seq)}")
+    wind_preds = []
+    wind_probs = []
+    wind_count=0
+    for start in range(0, len(seq)-wind+1, step):
+        end = start+wind
+        wind_seq = seq[start:end]
+        features = kmer_vector(wind_seq).reshape(1, -1)
+        pred = model.predict(features)[0]
+        prob = model.predict_proba(features)[0][pred]
+        wind_preds.append(pred)
+        wind_probs.append(prob)
+        wind_count+=1
+
+    majority_label = int(np.round(np.mean(wind_preds)))
+    avg_prob = float(np.mean(wind_probs))
+    return majority_label, avg_prob, wind_count
+
 
 def kmer_vector(seq: str) -> np.ndarray:
 
@@ -125,11 +148,9 @@ def classify_seq():
     try:
         filename = os.path.basename(input_seq)
         sequence = fileCheck(input_seq)
-        features = kmer_vector(sequence).reshape(1,-1)
-        prediction = model.predict(features)[0]
-        prob = model.predict_proba(features)[0].max()  # max probability for predicted class
-        label = "Coding" if prediction == 1 else "Non-coding"
-        result_label.config(text=f"File Name: {filename}\nPrediction: {label}\nConfidence: {prob:.3f}")
+        label_num, prob, count = windowed_kmer_preds(sequence)
+        label = "Coding" if label_num == 1 else "Non-coding"
+        result_label.config(text=f"File Name: {filename}\nSequence length: {len(sequence)}\nWindows evaluated: {count}\nPrediction: {label}\nConfidence: {prob:.3f}")
         root.update()
         
     except Exception as e:
