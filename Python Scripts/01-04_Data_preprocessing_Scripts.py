@@ -107,8 +107,6 @@ def gff_to_python_coords(start_1based: int, end_1based_inclusive: int) -> tuple[
 #Input intervals must already be sorted by start coordinates.
 def merge_intervals(sorted_intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
     merged = []
-
-
     for s, e in sorted_intervals:
         if not merged:
             merged.append([s, e])
@@ -117,10 +115,11 @@ def merge_intervals(sorted_intervals: list[tuple[int, int]]) -> list[tuple[int, 
 
         prev_s, prev_e = merged[-1]
 
-
+        # If this interval starts after the previous one ends, start a new merged interval
         if s > prev_e:
             merged.append([s, e])
         else:
+            # Otherwise overlap/adjacent: extend previous interval end
             merged[-1][1] = max(prev_e, e)
 
 
@@ -129,17 +128,17 @@ def merge_intervals(sorted_intervals: list[tuple[int, int]]) -> list[tuple[int, 
 
 #Read chr22.gff file, extract CDS features, merge CDS intervals
 def run_01_extract_cds() -> None:
+
     gff = load_gff(GFF_PATH)
-
-
+    #filter to CDS only
     cds = gff[gff["type"] == "CDS"].dropna(subset=["start", "end"]).copy()
 
-
+    
     cds["start"] = pd.to_numeric(cds["start"], errors="coerce")
     cds["end"] = pd.to_numeric(cds["end"], errors="coerce")
     cds = cds.dropna(subset=["start", "end"])
 
-
+    #Convert coordinates and store
     cds["start"] = cds["start"].astype(int)
     cds["end"] = cds["end"].astype(int)
 
@@ -148,9 +147,7 @@ def run_01_extract_cds() -> None:
     cds = cds[(cds["start"] > 0) & (cds["end"] > cds["start"])].copy()
 
 
-    cds["start0"], cds["end0"] = zip(
-    *cds.apply(lambda r: gff_to_python_coords(r["start"], r["end"]), axis=1)
-    )
+    cds["start0"], cds["end0"] = zip(*cds.apply(lambda r: gff_to_python_coords(r["start"], r["end"]), axis=1))
 
 
     cds_intervals = cds[["start0", "end0"]].sort_values(["start0", "end0"]).reset_index(drop=True)
@@ -172,14 +169,11 @@ def run_01_extract_cds() -> None:
     print()
 
 
-
-    #Define fixed-length, non-overlapping windows
-
-
+#CHECKPOINT
+#Define fixed-length, non-overlapping windows
 WINDOW = 250
 STEP = 250 
 MAX_N_FRAC = 0.05
-
 
 #Load FASTA file ensuring all DNA string charachters are uppercase 
 def load_sequence(fasta_path: Path) -> str:
@@ -189,7 +183,6 @@ def load_sequence(fasta_path: Path) -> str:
 
 #Label each window (including CDS overlap)
 def label_windows_by_overlap(windows: np.ndarray, cds_intervals: np.ndarray) -> np.ndarray:
-
 
     #Overlap when window [ws, we) overlaps cds [cs, ce) if cs < we AND ce > ws
     labels = np.zeros(len(windows), dtype=np.int8)
@@ -201,12 +194,12 @@ def label_windows_by_overlap(windows: np.ndarray, cds_intervals: np.ndarray) -> 
             j += 1
 
 
-            k = j
-            while k < len(cds_intervals) and cds_intervals[k][0] < we:
-                cs, ce = cds_intervals[k]
-                if cs < we and ce > ws:
-                    labels[i] = 1
-            break
+        k = j
+        while k < len(cds_intervals) and cds_intervals[k][0] < we:
+            cs, ce = cds_intervals[k]
+            if cs < we and ce > ws:
+                labels[i] = 1
+                break
             k += 1
 
 
