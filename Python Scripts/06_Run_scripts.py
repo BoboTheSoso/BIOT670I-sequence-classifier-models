@@ -6,8 +6,7 @@ Purpose:
 GUI script to launch a window and use the pre-trained model from script 05 to predict a sequence inputed by the user.
 Sequence is broken into 3-mers and loaded into the model, then a prediction is made alongside a confidence level.
 
-NEED:
-250bp window check
+250bp window check with a 100bp sliding window step
 -Option to train the model using scripts 01-04 and 05 (in case the joblib does not exist)
 
 
@@ -28,18 +27,11 @@ from collections import Counter
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "Models" / "pca_svm_model.joblib"
 
-#-----------------------------------------------------------
-# Load model
-#-----------------------------------------------------------
-try:
-    model = joblib.load(MODEL_PATH)
-except Exception as e:
-    raise RuntimeError(f"Model not found or failed to load: {e}")
-
 
 #-----------------------------------------------------------
 # Method to train/re-train the model
 #-----------------------------------------------------------
+
 def load_or_train_model():
     global model
     try:
@@ -60,7 +52,7 @@ def load_or_train_model():
 
 
 #-----------------------------------------------------------
-# Method for kmer vector-ing
+# Window sliding and kmer function calling
 #-----------------------------------------------------------    
 
 K = 3
@@ -89,6 +81,10 @@ def windowed_kmer_preds(seq:str, wind=WINDOW_SIZE, step=STEP_SIZE):
     avg_prob = float(np.mean(wind_probs))
     return majority_label, avg_prob, wind_count
 
+
+#-----------------------------------------------------------
+# Break input into kmer size 3
+#-----------------------------------------------------------
 
 def kmer_vector(seq: str) -> np.ndarray:
 
@@ -140,7 +136,10 @@ def fileCheck (input_seq):
     return seq
 
 
-#Might have to look into predicting for a window set at 250bp bases on model training?
+#-----------------------------------------------------------
+# Sequence classification time
+#-----------------------------------------------------------
+
 def classify_seq():
     
     input_seq = filedialog.askopenfilename()
@@ -160,6 +159,7 @@ def classify_seq():
 # GUI time
 #-----------------------------------------------------------
 root = tk.Tk()
+load_or_train_model()
 root.title("DNA Classifier for CDS and NCDS")
 root.geometry("500x300")
 root.resizable(False,False)
