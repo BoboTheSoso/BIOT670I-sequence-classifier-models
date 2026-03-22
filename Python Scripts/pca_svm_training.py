@@ -87,7 +87,7 @@ def train_model():
     #Create the pipeline
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('pca', PCA(n_components=50)), #reduce to 50 components for speed
+        ('pca', PCA(n_components=50)), #reduce to 50 components for speed while retaining high accuracy and precision
         ('svc', SVC(probability=True))
     ])
     print("Pipeline created.")
@@ -136,6 +136,7 @@ def train_model():
         outer_scores.append(val_accuracy)
 
     print(f"\nOverall Outer CV Accuracy: {np.mean(outer_scores):.4f} ± {np.std(outer_scores):.4f}")
+    print(f"Best parameters based on evaluation: {best_params_list}")
 
     #-----------------------------------------------------------
     # Train model
