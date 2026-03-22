@@ -63,6 +63,7 @@ def load_or_train_model():
     global model
     try:
         model = joblib.load(MODEL_PATH)
+        root.after(0, lambda: button.config(state="normal"))
     except:
         start_spinner()
 
@@ -70,22 +71,23 @@ def load_or_train_model():
             global model
             text_window = "No existing model found, initiating pre-processing script. This will take time."
             result_label.after(0, lambda: result_label.config(text=text_window))
-            root.update()
+
             prep.main()
             text_window +="\n\nPreprocessing step completed. Initiating model training step. \nThis can take up to 2 hours, feel free to step away."
             result_label.after(0, lambda: result_label.config(text=text_window))
-            root.update()
+            
             train.train_model()
             text_window +="\n\nModel training completed, thank you for your patience. Loading model now..."
             result_label.config(text=text_window)
-            root.update()
+            
             model = joblib.load(MODEL_PATH)
             result_label.after(0, stop_spinner)
             text_window +="\n\nModel loaded and saved. Please enter your sequence."
             result_label.config(text=text_window)
-            root.update()
+            root.after(0, lambda: button.config(state="normal"))
+            
         threading.Thread(target=task, daemon=True).start()
-    root.after(0, lambda: button.config(state="normal"))
+        
 
 
 #-----------------------------------------------------------
@@ -198,7 +200,7 @@ def classify_seq():
 #-----------------------------------------------------------
 root = tk.Tk()
 root.title("DNA Classifier for CDS and NCDS")
-root.geometry("500x300")
+root.geometry("500x400")
 root.resizable(False,False)
 label = tk.Label(root, text="DNA Sequence Classifier")
 label.pack(pady=10)
