@@ -6,14 +6,6 @@ GFF_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course
 FASTA_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.fna
 C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO
 kmer dir path: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\kmer_k3
-PS C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO> & c:\python314\python.exe "c:/Users/solen/OneDrive/Documents/School/UMGC/BIOT670I Capstone Course/REPO/Python Scripts/Run_scripts.py"
-PROJECT_ROOT: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO
-DATA_DIR: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data
-GENOME_DIR: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40
-GFF_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.gff
-FASTA_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.fna
-C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO
-kmer dir path: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\kmer_k3
 Step 01 Complete
 Loaded GFF: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.gff
 Raw CDS Rows: 32588
