@@ -21,12 +21,39 @@ import itertools
 from collections import Counter
 import Data_preprocessing_Scripts as prep
 import pca_svm_training as train
+import threading
+import time
+import sys
 
 #Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "Models" / "pca_svm_model.joblib"
 PREPROCESSING_SCRIPT_PATH = PROJECT_ROOT / "Python Scripts" / "Data_preprocessing_Scripts.py"
 MODEL_TRAINING_PATH = PROJECT_ROOT / "Python Scripts" / "pca_svm_training.py"
+
+
+#-----------------------------------------------------------
+# Very useless loading animation
+#-----------------------------------------------------------
+
+animation_running = False
+def animate_label(label, i=0):
+    spinner = ['|', '/', '-', '\\']
+
+    if animation_running:
+        label.config(text=f"Loading {spinner[i % len(spinner)]}")
+        label.after(100, animate_label, label, i+1)
+
+def start_spinner():
+    global animation_running
+    animation_running = True
+    animate_label(result_label_animation)
+
+def stop_spinner():
+    global animation_running
+    animation_running=False
+    result_label_animation.config(text="Done!")
+
 
 #-----------------------------------------------------------
 # Method to train/re-train the model
@@ -37,17 +64,28 @@ def load_or_train_model():
     try:
         model = joblib.load(MODEL_PATH)
     except:
-        result_label.config(text="No existing model found, initiating pre-processing script. This will take time.")
-        root.update()
-        prep.main()
-        result_label.config(text="Preprocessing step completed. Initiating model training step. This will take time, feel free to step away.")
-        root.update()
-        
-        train.train_model()
-        result_label.config(text="Model training completed, thank you for your patience. Loading model now...")
-        root.update()
+        start_spinner()
 
-        model = joblib.load(MODEL_PATH)
+        def task():
+            global model
+            text_window = "No existing model found, initiating pre-processing script. This will take time."
+            result_label.after(0, lambda: result_label.config(text=text_window))
+            root.update()
+            prep.main()
+            text_window +="\n\nPreprocessing step completed. Initiating model training step. \nThis will take time, feel free to step away."
+            result_label.after(0, lambda: result_label.config(text=text_window))
+            root.update()
+            train.train_model()
+            text_window +="\n\nModel training completed, thank you for your patience. Loading model now..."
+            result_label.config(text=text_window)
+            root.update()
+            model = joblib.load(MODEL_PATH)
+            result_label.after(0, stop_spinner)
+            text_window +="\n\nModel loaded and saved. Please enter your sequence."
+            result_label.config(text=text_window)
+            root.update()
+        threading.Thread(target=task, daemon=True).start()
+    root.after(0, lambda: button.config(state="normal"))
 
 
 #-----------------------------------------------------------
@@ -141,8 +179,9 @@ def fileCheck (input_seq):
 
 def classify_seq():
     
+    
     input_seq = filedialog.askopenfilename()
-
+    
     try:
         filename = os.path.basename(input_seq)
         sequence = fileCheck(input_seq)
@@ -163,10 +202,12 @@ root.geometry("500x300")
 root.resizable(False,False)
 label = tk.Label(root, text="DNA Sequence Classifier")
 label.pack(pady=10)
-#button2 = tk.Button(root, text = "Train the model (this will take a while...)", command= load_or_train_model)
+result_label_animation = tk.Label(root, text="")
+result_label_animation.pack(pady=20)
 result_label = tk.Label(root, text="")
 result_label.pack(pady=20)
 load_or_train_model()
 button = tk.Button(root, text = "Select input sequence", command= classify_seq)
 button.pack(pady=10)
+button.config(state="disabled")
 root.mainloop()
