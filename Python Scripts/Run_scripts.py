@@ -7,9 +7,7 @@ GUI script to launch a window and use the pre-trained model from script 05 to pr
 Sequence is broken into 3-mers and loaded into the model, then a prediction is made alongside a confidence level.
 
 250bp window check with a 100bp sliding window step
--Option to train the model using scripts 01-04 and 05 (in case the joblib does not exist)
-
-
+Train the model using scripts 01-04 and 05 (in case the joblib does not exist)
 
 '''
 import os
@@ -21,12 +19,14 @@ from tkinter.filedialog import askopenfilename
 import joblib
 import itertools
 from collections import Counter
-
+import Data_preprocessing_Scripts as prep
+import pca_svm_training as train
 
 #Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "Models" / "pca_svm_model.joblib"
-
+PREPROCESSING_SCRIPT_PATH = PROJECT_ROOT / "Python Scripts" / "Data_preprocessing_Scripts.py"
+MODEL_TRAINING_PATH = PROJECT_ROOT / "Python Scripts" / "pca_svm_training.py"
 
 #-----------------------------------------------------------
 # Method to train/re-train the model
@@ -39,14 +39,13 @@ def load_or_train_model():
     except:
         result_label.config(text="No existing model found, initiating pre-processing script. This will take time.")
         root.update()
-        with open("01-04_Data_preprocessing_Scripts.py") as preprocessing_step:
-            exec(preprocessing_step.read())
-            result_label.config(text="Preprocessing step completed. Initiating model training step.")
-            root.update()
-        with open("05_pca_svm_training.py") as training_step:
-            exec(training_step.read())
-            result_label.config(text="Model training completed, thank you for your patience. Loading model now...")
-            root.update()
+        prep.main()
+        result_label.config(text="Preprocessing step completed. Initiating model training step. This will take time, feel free to step away.")
+        root.update()
+        
+        train.train_model()
+        result_label.config(text="Model training completed, thank you for your patience. Loading model now...")
+        root.update()
 
         model = joblib.load(MODEL_PATH)
 
@@ -159,15 +158,15 @@ def classify_seq():
 # GUI time
 #-----------------------------------------------------------
 root = tk.Tk()
-load_or_train_model()
 root.title("DNA Classifier for CDS and NCDS")
 root.geometry("500x300")
 root.resizable(False,False)
 label = tk.Label(root, text="DNA Sequence Classifier")
 label.pack(pady=10)
-button2 = tk.Button(root, text = "Train the model (this will take a while...)", command= load_or_train_model)
-button = tk.Button(root, text = "Select input sequence", command= classify_seq)
-button.pack(pady=10)
+#button2 = tk.Button(root, text = "Train the model (this will take a while...)", command= load_or_train_model)
 result_label = tk.Label(root, text="")
 result_label.pack(pady=20)
+load_or_train_model()
+button = tk.Button(root, text = "Select input sequence", command= classify_seq)
+button.pack(pady=10)
 root.mainloop()
