@@ -72,7 +72,7 @@ def load_or_train_model():
             result_label.after(0, lambda: result_label.config(text=text_window))
             root.update()
             prep.main()
-            text_window +="\n\nPreprocessing step completed. Initiating model training step. \nThis will take time, feel free to step away."
+            text_window +="\n\nPreprocessing step completed. Initiating model training step. \nThis can take up to 2 hours, feel free to step away."
             result_label.after(0, lambda: result_label.config(text=text_window))
             root.update()
             train.train_model()
