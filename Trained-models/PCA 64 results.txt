@@ -1,0 +1,102 @@
+PS C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO> & c:\python314\python.exe "c:/Users/solen/OneDrive/Documents/School/UMGC/BIOT670I Capstone Course/REPO/Python Scripts/Run_scripts.py"
+PROJECT_ROOT: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO
+DATA_DIR: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data
+GENOME_DIR: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40
+GFF_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.gff
+FASTA_PATH: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.fna
+C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO
+kmer dir path: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\kmer_k3
+Step 01 Complete
+Loaded GFF: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.gff
+Raw CDS Rows: 32588
+Merged CDS Intervals: 4517
+Saved: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\chr22_cds_merged.csv
+
+Step 02 Complete
+Loaded FASTA: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\ncbi_dataset_GRCh38\ncbi_dataset\data\GCF_000001405.40\chr22.fna
+Sequence Length (base pairs): 50818468
+Saved: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\chr22_windows_250_labeled_all.csv
+Label Counts: {0: 149346, 1: 7253}
+
+Loaded: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\chr22_windows_250_labeled_all.csv
+Total Windows: 156599
+Class Counts (before): {0: 149346, 1: 7253}
+Class Counts (balanced): {1: 7253, 0: 7253}
+Saved: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\chr22_windows_250_labeled_balanced.csv
+Step 03 Complete
+Saved Splits:
+ Train: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\train.csv rows: 10154
+ Val:  C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\val.csv rows: 2176
+ Test:  C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\test.csv rows: 2176
+Training Label Counts: {0: 5214, 1: 4940}
+Validation Label Counts: {1: 1173, 0: 1003}
+Testing Label Counts: {1: 1140, 0: 1036}
+
+Train: X shape = (10154, 64), y shape = (10154,), class balance = [5214 4940]
+Validation: X shape = (2176, 64), y shape = (2176,), class balance = [1003 1173]
+Testing: X shape = (2176, 64), y shape = (2176,), class balance = [1036 1140]
+Step 04 Complete
+Saved k-mer features to: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\data\processed\kmer_k3
+
+✅ Full preprocessing pipeline complete.
+X_train shape: (10154, 64), y_train shape: (10154,)
+X_val shape: (2176, 64), y_val shape: (2176,)
+X_test shape: (2176, 64), y_test shape: (2176,)
+Pipeline created.
+Parameter grid created.
+Best params for this fold: {'svc__C': 1, 'svc__gamma': 0.01, 'svc__kernel': 'rbf'}, Best inner CV AUC: 0.8512
+Outer CV accuracy for this fold: 0.7533
+Best params for this fold: {'svc__C': 1, 'svc__gamma': 'scale', 'svc__kernel': 'rbf'}, Best inner CV AUC: 0.8420
+Outer CV accuracy for this fold: 0.7976
+Best params for this fold: {'svc__C': 1, 'svc__gamma': 0.01, 'svc__kernel': 'rbf'}, Best inner CV AUC: 0.8478
+Outer CV accuracy for this fold: 0.7720
+Best params for this fold: {'svc__C': 1, 'svc__gamma': 0.01, 'svc__kernel': 'rbf'}, Best inner CV AUC: 0.8455
+Outer CV accuracy for this fold: 0.7863
+Best params for this fold: {'svc__C': 1, 'svc__gamma': 0.01, 'svc__kernel': 'rbf'}, Best inner CV AUC: 0.8465
+Outer CV accuracy for this fold: 0.7823
+
+Overall Outer CV Accuracy: 0.7783 ± 0.0149
+Final model training completed. Moving to evaluation steps.
+Validation set evaluation:
+Accuracy:  0.6949
+Precision:  0.7341
+Recall:  0.6803
+F1 Score:  0.7062
+ROC AUC:  0.7766
+
+Confusion Matrix:
+ [[714 289]
+ [375 798]]
+
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.66      0.71      0.68      1003
+           1       0.73      0.68      0.71      1173
+
+    accuracy                           0.69      2176
+   macro avg       0.69      0.70      0.69      2176
+weighted avg       0.70      0.69      0.70      2176
+
+Test set evaluation:
+Accuracy:  0.7128
+Precision:  0.6851
+Recall:  0.836
+F1 Score:  0.7531
+ROC AUC:  0.7993
+
+Confusion Matrix:
+ [[598 438]
+ [187 953]]
+
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.76      0.58      0.66      1036
+           1       0.69      0.84      0.75      1140
+
+    accuracy                           0.71      2176
+   macro avg       0.72      0.71      0.70      2176
+weighted avg       0.72      0.71      0.71      2176
+
+Model saved in path: C:\Users\solen\OneDrive\Documents\School\UMGC\BIOT670I Capstone Course\REPO\Models
