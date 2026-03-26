@@ -64,6 +64,10 @@ Y_TRAIN_PATH = DATA_DIR / "y_Train.npy"
 X_VAL_PATH = DATA_DIR / "X_Validation.npy"
 Y_VAL_PATH = DATA_DIR / "y_Validation.npy"
 
+#File path for metrics (and later Model)
+MODEL_DIR = PROJECT_ROOT / "Models"
+os.makedirs(MODEL_DIR, exist_ok=True)
+
 def train_model():
     #-----------------------------------------------------------
     #Load Data from the previous step + param grid
@@ -83,6 +87,31 @@ def train_model():
     print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
     print(f"X_val shape: {X_val.shape}, y_val shape: {y_val.shape}")
     print(f"X_test shape: {X_test.shape}, y_test shape: {y_test.shape}")
+    
+    
+    #-----------------------------------------------------------
+    # PCA variance ratio
+    #-----------------------------------------------------------
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+
+    pca_temp = PCA()
+    pca_temp.fit(X_train_scaled)
+
+    explained_variance_ratio = pca_temp.explained_variance_ratio_
+    cumulative_variance = np.cumsum(explained_variance_ratio)
+
+    n_comp_95 = np.argmax(cumulative_variance >= .95)+1
+    
+    #plot variance
+    plt.figure()
+    plt.plot(cumulative_variance)
+    plt.title('PCA components variance')
+    plt.xlabel('Components #')
+    plt.ylabel('Cumulative Variance')
+    plt.savefig(MODEL_DIR / 'Cummulative_variance_plot.png')
+
+    print(f'Selected PCA components: {n_comp_95}')
 
     #-----------------------------------------------------------
     # Pipeline
@@ -90,7 +119,7 @@ def train_model():
     #Create the pipeline
     pipeline = Pipeline([
         ('scaler', StandardScaler()), 
-        ('pca', PCA(n_components=50)), #reduce to 50 components for speed while retaining high accuracy and precision
+        ('pca', PCA(n_components=0.95)), 
         ('svc', SVC(probability=True))
     ])
     print("Pipeline created.")
@@ -153,10 +182,7 @@ def train_model():
     #-----------------------------------------------------------
     # Evaluation method + Saving results
     #-----------------------------------------------------------
-    #File path for metrics (and later Model)
-    MODEL_DIR = PROJECT_ROOT / "Models"
-    os.makedirs(MODEL_DIR, exist_ok=True)
-
+    
     #List of all results
     results = {}
 
