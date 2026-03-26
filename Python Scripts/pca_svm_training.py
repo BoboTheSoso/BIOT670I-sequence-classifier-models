@@ -1,13 +1,13 @@
 '''
-PCA + SVM Training with Nested Cross-validation`
-Name: 05_pca_svm_training.py`
+PCA + SVM Training with Nested Cross-validation
+Name: pca_svm_training.py
 Purpose:
 Train a Support Vector Machine (SVM) classifier on k-mer features with PCA dimensionality reduction.
 Includes nested cross-validation for robust hyperparameter tuning and model evaluation.
 Steps:
 1. Load preprocessed k-mer features and labels from .npy files generated in previous steps
 2. Create a machine learning pipeline that includes:
-   - StandardScaler for feature scaling
+    - StandardScaler for feature scaling
     - PCA for dimensionality reduction (n_components=50 for speed)
     - SVC for classification
 3. Define a parameter grid for hyperparameter tuning of the SVM (linear, RBF, polynomial kernels)
@@ -30,6 +30,7 @@ import numpy as np
 import joblib #for saving the model after training?
 import os
 from pathlib import Path
+import json
 
 #Processing and PCA
 from sklearn.preprocessing import StandardScaler
@@ -44,8 +45,10 @@ from sklearn.pipeline import Pipeline
 #model selection for cross val
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-#metrics
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+#metrics and visualization
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, precision_recall_curve, RocCurveDisplay
+import matplotlib.pyplot as plt
+
 
 #-----------------------------------------------------------
 #Define all paths
@@ -86,7 +89,7 @@ def train_model():
     #-----------------------------------------------------------
     #Create the pipeline
     pipeline = Pipeline([
-        ('scaler', StandardScaler()),
+        ('scaler', StandardScaler()), 
         ('pca', PCA(n_components=50)), #reduce to 50 components for speed while retaining high accuracy and precision
         ('svc', SVC(probability=True))
     ])
@@ -97,9 +100,9 @@ def train_model():
     #-----------------------------------------------------------
 
     param_grid = [
-        {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]},
-        {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]},
-        {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]}
+        {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]}, #3
+        {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]}, #9
+        {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]} #27
     ]
     print("Parameter grid created.")
 
@@ -118,7 +121,7 @@ def train_model():
         X_train_outer, y_train_outer = X_train[outer_train_idx], y_train[outer_train_idx]
         X_val_outer, y_val_outer = X_train[outer_val_idx], y_train[outer_val_idx]
 
-        grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1) #check roc auc types options for binary vs multiclass
+        grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
         grid_search.fit(X_train_outer, y_train_outer)
 
         best_params = grid_search.best_params_
@@ -148,21 +151,48 @@ def train_model():
     print("Final model training completed. Moving to evaluation steps.")
 
     #-----------------------------------------------------------
-    # Evaluation method
+    # Evaluation method + Saving results
     #-----------------------------------------------------------
+    #File path for metrics (and later Model)
+    MODEL_DIR = PROJECT_ROOT / "Models"
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
-    def evaluate_step(y_true, y_pred, y_proba=None):
-        print('Accuracy: ', round(float(accuracy_score(y_true, y_pred)), 4))
-        print('Precision: ', round(float(precision_score(y_true, y_pred, zero_division = 0)), 4))
-        print('Recall: ', round(float(recall_score(y_true, y_pred, zero_division = 0)), 4))
-        print('F1 Score: ', round(float(f1_score(y_true, y_pred, zero_division = 0)), 4))
+    #List of all results
+    results = {}
+
+    def evaluate_step(split_name, y_true, y_pred, y_proba=None):
+        results['best_params'] = final_grid.best_params_
+        results['accuracy'] = float(accuracy_score(y_true, y_pred))
+        results['precision'] = float(precision_score(y_true, y_pred, zero_division = 0))
+        results['recall'] = float(recall_score(y_true, y_pred, zero_division = 0))
+        results['f1_Score'] = float(f1_score(y_true, y_pred, zero_division = 0))
+
         if y_proba is not None:
-            print('ROC AUC: ', round(float(roc_auc_score(y_true, y_proba)), 4))
+            results['ROC AUC'] = float(roc_auc_score(y_true, y_proba))
+        
+        if y_proba is not None:
+            #ROC Curve plot
+            plt.figure()
+            RocCurveDisplay.from_predictions(y_true, y_proba)
+            plt.title(f'Roc Curve for {split_name}')
+            plt.savefig(MODEL_DIR / f'{split_name}_roc_curve.png') #saved as png
+            plt.close()
 
-        print('\nConfusion Matrix:\n', confusion_matrix(y_true, y_pred))
-        print('\nClassification Report:\n', classification_report(y_true, y_pred))
 
+        #Saving metrics in Json file
+        with open(MODEL_DIR / f'{split_name}_metrics.json', 'w') as f:
+            json.dump(results, f, indent = 4)
 
+        #saving confusion matrix as a numpy matrix file
+        cm =  confusion_matrix(y_true, y_pred)
+        np.save(MODEL_DIR / f'{split_name}_confusion_matrix.npy', cm)
+
+        #Saving the classification report as a text file
+        cr = classification_report(y_true, y_pred)
+        with open(MODEL_DIR / f'{split_name}_classification_report.txt', 'w') as f:
+            f.write(cr)
+
+        print(f'{split_name} results saved.')
 
     #-----------------------------------------------------------
     # Validation evaluation
@@ -173,7 +203,7 @@ def train_model():
 
     #Evaluation metrics
     print("Validation set evaluation:")
-    evaluate_step(y_val, y_val_pred, y_val_proba)
+    evaluate_step('Validation_Set', y_val, y_val_pred, y_val_proba)
 
     #-----------------------------------------------------------
     # Test evaluation
@@ -183,7 +213,7 @@ def train_model():
     y_test_proba = final_model.predict_proba(X_test)[:, 1] #probabilities for ROC AUC
 
     print("Test set evaluation:")
-    evaluate_step(y_test, y_test_pred, y_test_proba)
+    evaluate_step('Test set', y_test, y_test_pred, y_test_proba)
 
 
     #-----------------------------------------------------------
@@ -191,7 +221,6 @@ def train_model():
     #-----------------------------------------------------------
 
     #Target directory will depend on GitHub structure and where you want to save the model
-    MODEL_DIR = PROJECT_ROOT / "Models"
-    os.makedirs(MODEL_DIR, exist_ok=True)
+    
     joblib.dump(final_model, f"{MODEL_DIR}/pca_svm_model.joblib")
     print(f"Model saved in path: {MODEL_DIR}")
