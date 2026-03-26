@@ -1,6 +1,6 @@
 '''
 GUI script. 
-Name: 06_Run_scripts.py
+Name: Run_scripts.py
 
 Purpose:
 GUI script to launch a window and use the pre-trained model from script 05 to predict a sequence inputed by the user.
@@ -22,8 +22,7 @@ from collections import Counter
 import Data_preprocessing_Scripts as prep
 import pca_svm_training as train
 import threading
-import time
-import sys
+
 
 #Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -65,7 +64,7 @@ def load_or_train_model():
         model = joblib.load(MODEL_PATH)
         root.after(0, lambda: button.config(state="normal"))
     except:
-        start_spinner()
+        start_spinner() #initiate incredibly useful spinner annimation
 
         def task():
             global model
@@ -84,7 +83,7 @@ def load_or_train_model():
             result_label.after(0, stop_spinner)
             text_window +="\n\nModel loaded and saved. Please enter your sequence."
             result_label.config(text=text_window)
-            root.after(0, lambda: button.config(state="normal"))
+            root.after(0, lambda: button.config(state="normal")) #reactivate sequence submission button
             
         threading.Thread(target=task, daemon=True).start()
         
@@ -130,10 +129,8 @@ def kmer_vector(seq: str) -> np.ndarray:
     seq = str(seq).upper()
     vec = np.zeros(len(ALL_KMERS), dtype=float)
 
-
     if len(seq) < K:
         return vec
-
 
     counts = Counter(
     seq[i:i+K]
@@ -141,11 +138,9 @@ def kmer_vector(seq: str) -> np.ndarray:
     if set(seq[i:i+K]).issubset({"A", "C", "G", "T"})
     )
 
-
     total = sum(counts.values())
     if total == 0:
         return vec
-
 
     for mer, c in counts.items():
         idx = KMER_INDEX.get(mer)
@@ -199,9 +194,9 @@ def classify_seq():
 # GUI time
 #-----------------------------------------------------------
 root = tk.Tk()
-root.title("DNA Classifier for CDS and NCDS")
-root.geometry("500x400")
-root.resizable(False,False)
+root.title("DNA Classifier for CDS and NCDS") #titles
+root.geometry("500x400") #window size
+root.resizable(False,False) #not resizeable (sorry)
 label = tk.Label(root, text="DNA Sequence Classifier")
 label.pack(pady=10)
 result_label_animation = tk.Label(root, text="")
@@ -209,7 +204,7 @@ result_label_animation.pack(pady=20)
 result_label = tk.Label(root, text="")
 result_label.pack(pady=20)
 load_or_train_model()
-button = tk.Button(root, text = "Select input sequence", command= classify_seq)
+button = tk.Button(root, text = "Select input sequence", command= classify_seq) #seq submission button
 button.pack(pady=10)
-button.config(state="disabled")
+button.config(state="disabled") #button disabled until model loaded
 root.mainloop()
