@@ -30,64 +30,30 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-
-
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.pipeline import Pipeline
 # =====================================================
-# STEP 1: K-MER FEATURE EXTRACTION
-# =====================================================
-
-def generate_all_kmers(k=3): #Generate all possible k-mers using A,C,G,T. For k=3 → 4^3 = 64 features.
-    
-    return [''.join(p) for p in product('ACGT', repeat=k)]
-
-
-ALL_KMERS = generate_all_kmers(3)
-
-
-def k_mer_features(sequence, k=3): #Convert a DNA sequence into normalized k-mer frequency features.
-    
-    counts = dict.fromkeys(ALL_KMERS, 0)
-
-    for i in range(len(sequence) - k + 1):
-        kmer = sequence[i:i+k]
-        if kmer in counts:
-            counts[kmer] += 1
-
-    total = sum(counts.values())
-
-    # Normalize to frequency
-    if total > 0:
-        for kmer in counts:
-            counts[kmer] /= total
-
-    return list(counts.values())
-
-
-# =====================================================
-# STEP 2: LOAD DATA
+# STEP 1: LOAD PREPROCESSED K-MER FEATURES
 # =====================================================
 
-TRAIN_PATH = "Data/processed/train.csv"
-VAL_PATH   = "Data/processed/val.csv"
-TEST_PATH  = "Data/processed/test.csv"
+DATA_DIR = "Data/processed/kmer_k3"
 
-train_df = pd.read_csv(TRAIN_PATH)
-val_df   = pd.read_csv(VAL_PATH)
-test_df  = pd.read_csv(TEST_PATH)
+# Load feature matrices
+X_train = np.load(os.path.join(DATA_DIR, "X_train.npy"))
+X_val   = np.load(os.path.join(DATA_DIR, "X_val.npy"))
+X_test  = np.load(os.path.join(DATA_DIR, "X_test.npy"))
 
-# Extract features and labels
-X_train = np.array([k_mer_features(seq) for seq in train_df["sequence"]])
-y_train = train_df["label"].values
+# Load labels
+y_train = np.load(os.path.join(DATA_DIR, "y_train.npy"))
+y_val   = np.load(os.path.join(DATA_DIR, "y_val.npy"))
+y_test  = np.load(os.path.join(DATA_DIR, "y_test.npy"))
 
-X_val = np.array([k_mer_features(seq) for seq in val_df["sequence"]])
-y_val = val_df["label"].values
-
-X_test = np.array([k_mer_features(seq) for seq in test_df["sequence"]])
-y_test = test_df["label"].values
-
-
+# Shape check
+print("Train:", X_train.shape, y_train.shape)
+print("Val:", X_val.shape, y_val.shape)
+print("Test:", X_test.shape, y_test.shape)
 # =====================================================
-# STEP 3: SCALE FEATURES
+# STEP 2: SCALE FEATURES
 # =====================================================
 
 scaler = StandardScaler()
@@ -100,7 +66,7 @@ X_test_scaled  = scaler.transform(X_test)
 # STEP 4: PCA DIMENSIONALITY REDUCTION
 # =====================================================
 
-pca = PCA(n_components=32)
+pca = PCA(n_components=42)
 X_train_pca = pca.fit_transform(X_train_scaled)
 X_val_pca   = pca.transform(X_val_scaled)
 X_test_pca  = pca.transform(X_test_scaled)
@@ -111,7 +77,6 @@ print("Total Variance Retained by PCA:", np.sum(pca.explained_variance_ratio_))
 # =====================================================
 # STEP 5: TRAIN SVM MODELS
 # =====================================================
-
 # Linear Kernel
 svm_linear = SVC(kernel='linear', C=1, probability=True)
 svm_linear.fit(X_train_pca, y_train)
@@ -124,7 +89,70 @@ svm_rbf.fit(X_train_pca, y_train)
 svm_poly = SVC(kernel='poly', degree=3, C=1, probability=True)
 svm_poly.fit(X_train_pca, y_train)
 
+#-----------------------------------------------------------
+# Pipeline
 
+#-----------------------------------------------------------
+# Define a pipeline for scaling, PCA, and SVM (for future use in GridSearchCV)
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('pca', PCA(n_components=42)), #reduce to 42 components for speed
+    ('svc', SVC(probability=True))
+])
+
+
+#-----------------------------------------------------------
+# Parameter grid
+#-----------------------------------------------------------
+
+param_grid = [
+    {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]},
+    {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]},
+    {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]}
+]
+
+
+#-----------------------------------------------------------
+# Nested Cross-validation with GridSearchCV
+#-----------------------------------------------------------
+
+#Outer CV for model evaluation, inner CV for hyperparameter tuning
+outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+
+outer_scores = []
+best_params_list = []
+
+for outer_train_idx, outer_val_idx in outer_cv.split(X_train, y_train):
+    X_train_outer, y_train_outer = X_train[outer_train_idx], y_train[outer_train_idx]
+    X_val_outer, y_val_outer = X_train[outer_val_idx], y_train[outer_val_idx]
+
+    grid_search = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1) #check roc auc types options for binary vs multiclass
+    grid_search.fit(X_train_outer, y_train_outer)
+
+    best_params = grid_search.best_params_
+    best_score = grid_search.best_score_
+
+    print(f"Best params for this fold: {best_params}, Best inner CV AUC: {best_score:.4f}")
+
+    best_params_list.append(best_params)
+
+    # Evaluate the best model on the outer validation set
+    best_model = grid_search.best_estimator_
+    y_val_pred = best_model.predict(X_val_outer)
+    val_accuracy = accuracy_score(y_val_outer, y_val_pred)
+    print(f"Outer CV accuracy for this fold: {val_accuracy:.4f}")
+    outer_scores.append(val_accuracy)
+
+print(f"\nOverall Outer CV Accuracy: {np.mean(outer_scores):.4f} ± {np.std(outer_scores):.4f}")
+
+#-----------------------------------------------------------
+# Train model
+#-----------------------------------------------------------
+
+final_grid = GridSearchCV(estimator=pipeline, param_grid=param_grid, cv=inner_cv, scoring='roc_auc', n_jobs=-1)
+final_grid.fit(X_train, y_train)
+final_model = final_grid.best_estimator_
 # =====================================================
 # STEP 6: EVALUATION FUNCTION
 # =====================================================
@@ -149,18 +177,6 @@ def evaluate_model(model, X, y, name="Model"): #Evaluate model performance and p
     print("Confusion Matrix:\n", cm)
 
     return acc, prec, rec, f1
-
-
-# =====================================================
-# STEP 7: VALIDATION PERFORMANCE
-# =====================================================
-
-evaluate_model(svm_linear, X_val_pca, y_val, "Linear SVM (Validation)")
-evaluate_model(svm_rbf, X_val_pca, y_val, "RBF SVM (Validation)")
-evaluate_model(svm_poly, X_val_pca, y_val, "Polynomial SVM (Validation)")
-
-
-
 
 # =====================================================
 # STEP 8: SAVE MODELS USING JOBLIB
