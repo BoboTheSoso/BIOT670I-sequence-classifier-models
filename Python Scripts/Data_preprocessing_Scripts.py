@@ -261,7 +261,7 @@ RANDOM_STATE = 42
 REQUIRED_COLS = {"window_id", "start0", "end0", "label", "sequence"}
 
 
-#Ensure and validate the input DataFram
+#Ensure and validate the input DataFrame
 def assert_expected_columns(df: pd.DataFrame) -> None:
     missing = REQUIRED_COLS - set(df.columns)
     if missing:
@@ -273,33 +273,35 @@ def balance_by_undersampling(df: pd.DataFrame) -> pd.DataFrame:
     coding = df[df["label"] == 1]
     noncoding = df[df["label"] == 0]
 
-
+#Ensure both coding and non coding classes exist
     if len(coding) == 0 or len(noncoding) == 0:
         raise ValueError(f"Cannot balance. coding={len(coding)} noncoding={len(noncoding)}")
 
-
+#Confirm whether coding or non coding is majority class
     if len(noncoding) > len(coding):
+        #Random sample non coding class to equate to number of coding sequences
         noncoding_sample = noncoding.sample(n=len(coding), random_state=RANDOM_STATE)
+        #Combine random sample of non coding class and coding sequences
         balanced = pd.concat([coding, noncoding_sample], ignore_index=True)
     else:
         coding_sample = coding.sample(n=len(noncoding), random_state=RANDOM_STATE)
         balanced = pd.concat([coding_sample, noncoding], ignore_index=True)
 
-
+        #Rearrange combined dataset
         balanced = balanced.sample(frac=1.0, random_state=RANDOM_STATE).reset_index(drop=True)
     return balanced
 
 
-#Split into Train/Val/Test based on genomic coordinates order
+#Split into Train/Val/Test based on genomic start coordinates order
 def split_by_coordinate(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     df_sorted = df.sort_values("start0").reset_index(drop=True)
     n = len(df_sorted)
 
-
+    #Establish splits according to predefined training and validation fractions
     n_train = int(TRAIN_FRAC * n)
     n_val_end = int((TRAIN_FRAC + VAL_FRAC) * n)
 
-
+    #Split dataset into train, validation, and test sets 
     train = df_sorted.iloc[:n_train].reset_index(drop=True)
     val = df_sorted.iloc[n_train:n_val_end].reset_index(drop=True)
     test = df_sorted.iloc[n_val_end:].reset_index(drop=True)
@@ -310,10 +312,11 @@ def split_by_coordinate(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, p
 
 #Balance labeled windows and creation of Train/Valid/Test splits 
 def run_03_balance_and_split() -> None:
+    #Load labeled window dataset
     df = pd.read_csv(OUT_ALL)
     assert_expected_columns(df)
 
-
+    #Ensure columns are in consistent format (int)
     df["label"] = df["label"].astype(int)
     df["start0"] = df["start0"].astype(int)
     df["end0"] = df["end0"].astype(int)
@@ -323,7 +326,7 @@ def run_03_balance_and_split() -> None:
     print("Total Windows:", len(df))
     print("Class Counts (before):", df["label"].value_counts().to_dict())
 
-
+    #Implement undersampling to create balanced dataset
     balanced = balance_by_undersampling(df)
     print("Class Counts (balanced):", balanced["label"].value_counts().to_dict())
 
@@ -331,7 +334,7 @@ def run_03_balance_and_split() -> None:
     balanced.to_csv(OUT_BAL, index=False)
     print("Saved:", OUT_BAL)
 
-
+    #Split balanced dataset into training, validation, and test sets according to genomic coordinates
     train, val, test = split_by_coordinate(balanced)
 
 
@@ -354,7 +357,9 @@ def run_03_balance_and_split() -> None:
 
 #Defining k-mer features
 K = 3
+#Generate all possible 3-mers
 ALL_KMERS = [''.join(p) for p in itertools.product("ACGT", repeat=K)]
+#Create dictionary for storing k-mers
 KMER_INDEX = {kmer: i for i, kmer in enumerate(ALL_KMERS)}
 
 
@@ -363,28 +368,29 @@ IN_VAL = OUT_VAL
 IN_TEST = OUT_TEST
 
 
-#Conversion of DNA sequences into normalized k-mer frequency vector 
+#Convert DNA sequence into a normalized k-mer frequency vector 
 def kmer_vector(seq: str) -> np.ndarray:
     seq = str(seq).upper()
+    #Initialize feature vector
     vec = np.zeros(len(ALL_KMERS), dtype=float)
 
 
     if len(seq) < K:
         return vec
 
-
+    #Count the number of identified valid k-mers
     counts = Counter(
     seq[i:i+K]
     for i in range(len(seq) - K + 1)
     if set(seq[i:i+K]).issubset({"A", "C", "G", "T"})
     )
 
-
+    #Store total number of valid k-mers
     total = sum(counts.values())
     if total == 0:
         return vec
 
-
+    #Input normalized k-mer frequencies into vector
     for mer, c in counts.items():
         idx = KMER_INDEX.get(mer)
         if idx is not None:
@@ -393,19 +399,19 @@ def kmer_vector(seq: str) -> np.ndarray:
     return vec
 
 
-#Loading of each split, conversion of sequences into k-mer featurers
+#Load each split and convert sequences into k-mer featurers
 def featurize_split(csv_path: Path, split_name: str) -> None:
     df = pd.read_csv(csv_path)
 
-
+    #Ensure input file has appropriate sequence and label columns
     if "sequence" not in df.columns or "label" not in df.columns:
         raise ValueError(f"{csv_path} must contain 'sequence' and 'label' columns. Found: {list(df.columns)}")
 
-
+    #Extract sequence and label column from dataframe and convert to numpy array
     sequences = df["sequence"].astype(str).tolist()
     y = df["label"].astype(int).to_numpy()
 
-
+    #Create feature matrix with each sequence in a 64-component vector
     X = np.vstack([kmer_vector(seq) for seq in sequences])
 
 
@@ -416,7 +422,7 @@ def featurize_split(csv_path: Path, split_name: str) -> None:
     print(f"{split_name}: X shape = {X.shape}, y shape = {y.shape}, class balance = {np.bincount(y)}")
 
 
-#Conversion of train/val/test windows sequences into k-mer feature vector matrices
+#Convert train/val/test windows sequences into k-mer feature vector matrices
 def run_04_kmers() -> None:
     featurize_split(IN_TRAIN, "Train")
     featurize_split(IN_VAL, "Validation")
