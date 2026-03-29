@@ -8,7 +8,7 @@ Steps:
 1. Load preprocessed k-mer features and labels from .npy files generated in previous steps
 2. Create a machine learning pipeline that includes:
     - StandardScaler for feature scaling
-    - PCA for dimensionality reduction (n_components=50 for speed)
+    - PCA for dimensionality reduction (n_components = cumulative_variance => 0.95 for speed)
     - SVC for classification
 3. Define a parameter grid for hyperparameter tuning of the SVM (linear, RBF, polynomial kernels)
 4. Perform nested cross-validation:
@@ -129,9 +129,9 @@ def train_model():
     #-----------------------------------------------------------
 
     param_grid = [
-        {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]}, #3
-        {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]}, #9
-        {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]} #27
+        {'svc__kernel': ['linear'], 'svc__C': [0.1, 1, 10]},
+        {'svc__kernel': ['rbf'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1]},
+        {'svc__kernel': ['poly'], 'svc__C': [0.1, 1, 10], 'svc__gamma': ['scale', 0.01, 0.1], 'svc__degree': [2, 3]}
     ]
     print("Parameter grid created.")
 
@@ -169,6 +169,10 @@ def train_model():
 
     print(f"\nOverall Outer CV Accuracy: {np.mean(outer_scores):.4f} ± {np.std(outer_scores):.4f}")
     print(f"Best parameters based on evaluation: {best_params_list}")
+    
+    #save best params list as json file
+    with open(MODEL_DIR / 'best_params_list.json', 'w') as f:
+        json.dump(best_params_list, f, indent=4)
 
     #-----------------------------------------------------------
     # Train model
@@ -216,7 +220,7 @@ def train_model():
         #Saving the classification report as a text file
         cr = classification_report(y_true, y_pred)
         with open(MODEL_DIR / f'{split_name}_classification_report.txt', 'w') as f:
-            f.write(cr)
+            f.write(str(cr))
 
         print(f'{split_name} results saved.')
 
