@@ -37,7 +37,7 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 from Bio import SeqIO
-
+import matplotlib.pyplot as plt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -418,9 +418,40 @@ def featurize_split(csv_path: Path, split_name: str) -> None:
     np.save(KMER_OUT_DIR / f"X_{split_name}.npy", X)
     np.save(KMER_OUT_DIR / f"y_{split_name}.npy", y)
 
+    #Visualize test, training, validation feature vectors in CSV files
+    df_csv = pd.DataFrame(X, columns=ALL_KMERS)
 
+    df_csv["label"] = y
+
+    df_csv.to_csv(KMER_OUT_DIR / f"{split_name}_features_with_labels.csv", index=False)
     print(f"{split_name}: X shape = {X.shape}, y shape = {y.shape}, class balance = {np.bincount(y)}")
 
+    
+    #Seperate coding and noncoding from feature matrix
+    coding = X[y == 1]
+    noncoding = X[y == 0]
+
+    #Create coding heatmap
+    plt.figure(figsize=(12, 6))
+    plt.imshow(coding[:50], aspect="auto")
+    plt.title(f"{split_name} Coding Sequence Heatmap")
+    plt.xlabel("3-mer Feature Index")
+    plt.ylabel("Coding Sequence Index")
+    plt.colorbar()
+    plt.savefig(KMER_OUT_DIR / f"{split_name}_coding_heatmap.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
+    #Create noncoding heatmap
+    plt.figure(figsize=(12, 6))
+    plt.imshow(noncoding[:50], aspect="auto")
+    plt.title(f"{split_name} Noncoding Sequence Heatmap")
+    plt.xlabel("3-mer Feature Index")
+    plt.ylabel("Noncoding Sequence Index")
+    plt.colorbar()
+    plt.savefig(KMER_OUT_DIR / f"{split_name}_noncoding_heatmap.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"{split_name}: X shape = {X.shape}, y shape = {y.shape}, class balance = {np.bincount(y)}")
 
 #Convert train/val/test windows sequences into k-mer feature vector matrices
 def run_04_kmers() -> None:
